@@ -9,8 +9,6 @@ A simple Linux AppImage tool to convert videos to MOV format using DNxHD codec, 
 - Select input video (mp4, mkv, m4v, mov, avi, wmv, hevc, 3gp)
 - Choose FPS and Resolution (or keep original if detected)
 - Warning if input video lacks FPS or resolution
-- Progress bar with ETA
-- Conversion complete dialog
 - Portable AppImage included
 
 ## Requirements
