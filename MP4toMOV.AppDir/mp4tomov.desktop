@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=MP4 to MOV Converter
+Exec=AppRun
+Icon=mp4tomov
+Terminal=false
+Type=Application
+Categories=AudioVideo
+StartupWMClass=mp4tomov
+
