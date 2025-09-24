@@ -13,121 +13,122 @@ class Converter(Gtk.Window):
     def __init__(self):
         Gtk.Window.__init__(self, title="MP4 to MOV Converter")
         self.set_border_width(10)
-        self.set_default_size(500, 250)
+        self.set_default_size(550, 350)
         self.set_icon_from_file(ICON_PATH)
 
         grid = Gtk.Grid(row_spacing=10, column_spacing=10)
         self.add(grid)
 
-        # --- File chooser ---
+        # --- Input file chooser ---
         self.file_chooser = Gtk.FileChooserButton(title="Select video file")
         filter_video = Gtk.FileFilter()
         filter_video.set_name("Video files")
         for ext in ["mp4","mkv","m4v","mov","avi","wmv","hevc","3gp"]:
             filter_video.add_pattern(f"*.{ext}")
         self.file_chooser.add_filter(filter_video)
-        self.file_chooser.connect("selection-changed", self.on_file_changed)
-        grid.attach(Gtk.Label(label="Video File:"), 0,0,1,1)
+        grid.attach(Gtk.Label(label="Video File:"),0,0,1,1)
         grid.attach(self.file_chooser,1,0,2,1)
+
+        # --- Destination folder chooser ---
+        self.dest_chooser = Gtk.FileChooserButton(
+            title="Select destination folder",
+            action=Gtk.FileChooserAction.SELECT_FOLDER
+        )
+        grid.attach(Gtk.Label(label="Destination Folder:"),0,1,1,1)
+        grid.attach(self.dest_chooser,1,1,2,1)
 
         # --- FPS options ---
         self.fps_store = Gtk.ListStore(str)
-        for fps in ["Original","23.976","24","30","60"]:
+        for fps in ["Original","23.976","24","29.97","30","60"]:
             self.fps_store.append([fps])
         self.fps_combo = Gtk.ComboBox.new_with_model(self.fps_store)
         renderer_text = Gtk.CellRendererText()
         self.fps_combo.pack_start(renderer_text, True)
         self.fps_combo.add_attribute(renderer_text, "text", 0)
         self.fps_combo.set_active(0)
-        grid.attach(Gtk.Label(label="FPS:"), 0,1,1,1)
-        grid.attach(self.fps_combo,1,1,2,1)
+        grid.attach(Gtk.Label(label="FPS:"),0,2,1,1)
+        grid.attach(self.fps_combo,1,2,2,1)
 
-        # --- Resolution options ---
+        # --- Size type checkboxes ---
+        self.size_type_original = Gtk.CheckButton(label="Original")
+        self.size_type_horizontal = Gtk.CheckButton(label="Horizontal")
+        self.size_type_vertical = Gtk.CheckButton(label="Vertical")
+        self.size_type_square = Gtk.CheckButton(label="Square")
+        self.size_type_original.set_active(True)
+        for cb in [self.size_type_original, self.size_type_horizontal, self.size_type_vertical, self.size_type_square]:
+            cb.connect("toggled", self.on_size_type_toggled)
+        grid.attach(self.size_type_original,0,3,1,1)
+        grid.attach(self.size_type_horizontal,1,3,1,1)
+        grid.attach(self.size_type_vertical,2,3,1,1)
+        grid.attach(self.size_type_square,3,3,1,1)
+
+        # --- Resolution combobox ---
         self.res_store = Gtk.ListStore(str)
-        for res in ["Original","1920x1080","2048x1080","3840x2160"]:
-            self.res_store.append([res])
         self.res_combo = Gtk.ComboBox.new_with_model(self.res_store)
         renderer_text = Gtk.CellRendererText()
         self.res_combo.pack_start(renderer_text, True)
         self.res_combo.add_attribute(renderer_text, "text", 0)
-        self.res_combo.set_active(0)
-        grid.attach(Gtk.Label(label="Resolution:"),0,2,1,1)
-        grid.attach(self.res_combo,1,2,2,1)
+        grid.attach(Gtk.Label(label="Resolution:"),0,4,1,1)
+        grid.attach(self.res_combo,1,4,2,1)
+        self.update_resolution_list("Original")
+
+        # --- Log file checkbox ---
+        self.log_checkbox = Gtk.CheckButton(label="Create log file")
+        grid.attach(self.log_checkbox,0,5,2,1)
 
         # --- Warning label ---
         self.warning_label = Gtk.Label(label="")
         self.warning_label.set_line_wrap(True)
         self.warning_label.set_justify(Gtk.Justification.LEFT)
-        grid.attach(self.warning_label, 0, 3, 3, 1)
+        grid.attach(self.warning_label, 0, 6, 4, 1)
 
         # --- Start button ---
         self.start_button = Gtk.Button(label="Start Conversion")
         self.start_button.connect("clicked", self.on_start)
-        grid.attach(self.start_button,1,4,1,1)
+        grid.attach(self.start_button,1,7,2,1)
 
         # --- Progress bar ---
         self.progress = Gtk.ProgressBar()
-        grid.attach(self.progress,0,5,3,1)
+        grid.attach(self.progress,0,8,4,1)
 
         self.show_all()
 
-    def on_file_changed(self, widget):
-        input_file = self.file_chooser.get_filename()
-        if not input_file:
-            self.warning_label.set_text("")
-            return
+    def on_size_type_toggled(self, widget):
+        # Only one can be active at a time
+        if widget.get_active():
+            for cb in [self.size_type_original, self.size_type_horizontal, self.size_type_vertical, self.size_type_square]:
+                if cb != widget:
+                    cb.set_active(False)
+            size_type = widget.get_label()
+            self.update_resolution_list(size_type)
 
-        resolution_available = True
-        fps_available = True
-
-        try:
-            width_height = subprocess.check_output([FFPROBE,"-v","error","-select_streams","v:0",
-                                                   "-show_entries","stream=width,height","-of","csv=p=0", input_file],
-                                                  text=True).strip()
-            width_val, height_val = map(int, width_height.split(","))
-        except:
-            resolution_available = False
-
-        try:
-            fps_val = subprocess.check_output([FFPROBE,"-v","error","-select_streams","v:0",
-                                              "-show_entries","stream=r_frame_rate","-of","default=noprint_wrappers=1:nokey=1",input_file],
-                                             text=True).strip()
-            num, den = map(int, fps_val.split("/"))
-            fps_actual = num/den if den>0 else num
-        except:
-            fps_available = False
-
-        # Disable "Original" if not available
-        if not fps_available:
-            self.fps_combo.set_active(1)
-            self.fps_combo.get_child().set_sensitive(False)
-        else:
-            self.fps_combo.set_sensitive(True)
-
-        if not resolution_available:
-            self.res_combo.set_active(1)
-            self.res_combo.get_child().set_sensitive(False)
+    def update_resolution_list(self, size_type):
+        self.res_store.clear()
+        if size_type == "Original":
+            self.res_combo.set_sensitive(False)
+            self.res_store.append(["Original"])
         else:
             self.res_combo.set_sensitive(True)
-
-        # Set warning text if either missing
-        warning_msgs = []
-        if not resolution_available:
-            warning_msgs.append("resolution")
-        if not fps_available:
-            warning_msgs.append("frame rate")
-        if warning_msgs:
-            self.warning_label.set_text(
-                "⚠ Warning: This video file does not have detected " + " and ".join(warning_msgs) +
-                ". Please select a value for the final conversion."
-            )
-        else:
-            self.warning_label.set_text("")
+            if size_type == "Horizontal":
+                for res in ["1920x1080","2048x1080","3840x2160"]:
+                    self.res_store.append([res])
+            elif size_type == "Vertical":
+                for res in ["1080x1920","1080x2048","2160x3840"]:
+                    self.res_store.append([res])
+            elif size_type == "Square":
+                for res in ["1920x1920","2048x2048","3840x3840"]:
+                    self.res_store.append([res])
+        self.res_combo.set_active(0)
 
     def on_start(self, widget):
         input_file = self.file_chooser.get_filename()
         if not input_file:
             self.show_message("Please select a video file.")
+            return
+
+        dest_folder = self.dest_chooser.get_filename()
+        if not dest_folder:
+            self.show_message("Please select a destination folder.")
             return
 
         fps_iter = self.fps_combo.get_active_iter()
@@ -136,10 +137,17 @@ class Converter(Gtk.Window):
         res_iter = self.res_combo.get_active_iter()
         res_choice = self.res_store[res_iter][0] if res_iter else "Original"
 
-        output_file = os.path.splitext(input_file)[0] + ".mov"
+        filename_base = os.path.splitext(os.path.basename(input_file))[0]
+        output_file = os.path.join(dest_folder, filename_base + ".mov")
 
-        ffmpeg_cmd = [FFMPEG, "-i", input_file, "-vcodec", "dnxhd", "-acodec", "pcm_s16le",
-                      "-b:v","36M","-pix_fmt","yuv422p","-f","mov"]
+        # Auto rename if file exists
+        counter = 1
+        orig_output_file = output_file
+        while os.path.exists(output_file) and os.path.getsize(output_file) > 0:
+            output_file = os.path.join(dest_folder, f"{filename_base}_copy{counter}.mov")
+            counter += 1
+
+        ffmpeg_cmd = [FFMPEG, "-i", input_file, "-vcodec", "prores_ks", "-acodec", "pcm_s16le", "-pix_fmt", "yuv422p"]
         if fps_choice != "Original":
             ffmpeg_cmd += ["-r", fps_choice]
         if res_choice != "Original":
@@ -180,6 +188,7 @@ class Converter(Gtk.Window):
                                    buttons=Gtk.ButtonsType.OK, text=msg)
         dialog.run()
         dialog.destroy()
+
 
 if __name__ == "__main__":
     win = Converter()
