@@ -1,14 +1,13 @@
 # video-To-MOV-for-Davinci-Resolve-Linux
 
-A simple Linux AppImage tool to convert videos to MOV format using ProRes codec, built with Python3, GTK3, and FFmpeg.
+A simple Linux AppImage tool to convert videos to MOV format using ProRes, DNxHD and Cineform codec, built with Python3, GTK3, and FFmpeg.
 
 
 ## Features
 - Supports vertical, horizontal and square videos
 - Single-window GUI
 - Select input video (mp4, mkv, m4v, mov, avi, wmv, hevc, 3gp)
-- Choose FPS and Resolution (or keep original if detected)
-- Warning if input video lacks FPS or resolution
+- Choose codec (DNxHD, ProRes or Cineform)
 - Portable AppImage included
 
 ## Requirements
