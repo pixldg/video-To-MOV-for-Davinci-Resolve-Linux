@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
-import gi, subprocess, os, signal
+import gi, subprocess, os
 gi.require_version('Gtk', '3.0')
-from gi.repository import Gtk, GLib
+from gi.repository import Gtk
 
 # --- Paths ---
 HERE = os.path.dirname(os.path.realpath(__file__))
 FFMPEG = os.path.join(HERE, "usr/bin/ffmpeg") if os.path.exists(os.path.join(HERE, "usr/bin/ffmpeg")) else "ffmpeg"
-FFPROBE = os.path.join(HERE, "usr/bin/ffprobe") if os.path.exists(os.path.join(HERE, "usr/bin/ffprobe")) else "ffprobe"
 ICON_PATH = os.path.join(HERE, "mp4tomov.png")
 
 class Converter(Gtk.Window):
@@ -19,7 +18,6 @@ class Converter(Gtk.Window):
 
         self.proc = None
         self.output_file = None
-        self.popup = None
 
         grid = Gtk.Grid(row_spacing=10, column_spacing=10)
         self.add(grid)
@@ -35,8 +33,10 @@ class Converter(Gtk.Window):
         grid.attach(self.file_chooser, 1, 0, 2, 1)
 
         # --- Destination folder chooser ---
-        self.dest_chooser = Gtk.FileChooserButton(title="Select destination folder",
-                                                  action=Gtk.FileChooserAction.SELECT_FOLDER)
+        self.dest_chooser = Gtk.FileChooserButton(
+            title="Select destination folder",
+            action=Gtk.FileChooserAction.SELECT_FOLDER
+        )
         grid.attach(Gtk.Label(label="Destination Folder:"), 0, 1, 1, 1)
         grid.attach(self.dest_chooser, 1, 1, 2, 1)
 
@@ -64,15 +64,14 @@ class Converter(Gtk.Window):
         grid.attach(Gtk.Label(label="Codec:"), 0, 3, 1, 1)
         grid.attach(self.codec_combo, 1, 3, 2, 1)
 
-        # --- Start and Stop buttons ---
+        # --- Start button ---
         self.start_button = Gtk.Button(label="Start Conversion")
         self.start_button.connect("clicked", self.on_start)
         grid.attach(self.start_button, 1, 4, 1, 1)
 
-        self.stop_button = Gtk.Button(label="Stop Conversion")
-        self.stop_button.connect("clicked", self.on_stop)
-        self.stop_button.set_sensitive(False)
-        grid.attach(self.stop_button, 2, 4, 1, 1)
+        # --- Info label ---
+        self.info_label = Gtk.Label(label="To cancel the process, press Ctrl + C in the terminal.")
+        grid.attach(self.info_label, 1, 5, 2, 1)
 
         self.show_all()
 
@@ -116,57 +115,20 @@ class Converter(Gtk.Window):
 
         ffmpeg_cmd.append(self.output_file)
 
-        # Disable start, enable stop
+        # Disable start button while running
         self.start_button.set_sensitive(False)
-        self.stop_button.set_sensitive(True)
 
-        # Show converting popup
-        self.popup = Gtk.Window(title="Converting")
-        self.popup.set_default_size(250, 80)
-        label = Gtk.Label(label="Converting, please wait...")
-        self.popup.add(label)
-        self.popup.show_all()
+        # Launch FFmpeg in a new terminal window
+        subprocess.Popen(["gnome-terminal", "--"] + ffmpeg_cmd)
 
-        # Start FFmpeg asynchronously
-        self.proc = subprocess.Popen(ffmpeg_cmd, stderr=subprocess.PIPE, text=True)
-        GLib.timeout_add(500, self.check_process)
-
-    def check_process(self):
-        if self.proc.poll() is None:
-            return True  # still running, check again in 500ms
-        else:
-            # Close converting popup
-            if self.popup:
-                self.popup.destroy()
-                self.popup = None
-            # Show completion dialog
-            if self.proc.returncode == 0:
-                self.show_message(f"Conversion complete:\n{self.output_file}")
-            else:
-                self.show_message("Conversion failed or stopped!")
-                if self.output_file and os.path.exists(self.output_file):
-                    os.remove(self.output_file)
-            self.start_button.set_sensitive(True)
-            self.stop_button.set_sensitive(False)
-            return False  # stop checking
-
-    def on_stop(self, widget):
-        if self.proc and self.proc.poll() is None:
-            self.proc.send_signal(signal.SIGTERM)
-            if self.popup:
-                self.popup.destroy()
-                self.popup = None
-            if self.output_file and os.path.exists(self.output_file):
-                os.remove(self.output_file)
-            self.start_button.set_sensitive(True)
-            self.stop_button.set_sensitive(False)
+        # Re-enable start button immediately after launching (so user can start another later)
+        self.start_button.set_sensitive(True)
 
     def show_message(self, msg):
         dialog = Gtk.MessageDialog(parent=self, flags=0, message_type=Gtk.MessageType.INFO,
                                    buttons=Gtk.ButtonsType.OK, text=msg)
         dialog.run()
         dialog.destroy()
-
 
 if __name__ == "__main__":
     win = Converter()
