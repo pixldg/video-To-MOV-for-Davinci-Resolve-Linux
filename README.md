@@ -14,6 +14,7 @@ A simple Linux AppImage tool to convert videos to MOV format using ProRes, DNxHD
 
 - **FFmpeg** (`ffmpeg` and `ffprobe`) **must be installed separately**. The AppImage **does not bundle FFmpeg**.  
 - Python 3 and GTK3 are required **only if running from source**.
+- Install libfuse2 to run Appimages.
 
 ## Installation
 
