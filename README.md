@@ -17,9 +17,14 @@ A simple Linux AppImage tool to convert videos to MOV format using ProRes, DNxHD
 
 ## Installation
 
+#### Debian / Ubuntu
+```bash
+sudo apt update
+sudo apt install libfuse2
+```    
+
 ### Installing FFmpeg
 
-#### Debian / Ubuntu
 ```bash
 sudo apt update
 sudo apt install ffmpeg
