@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+import shutil
+import shlex
 import gi, subprocess, os
 gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk
@@ -7,6 +9,42 @@ from gi.repository import Gtk
 HERE = os.path.dirname(os.path.realpath(__file__))
 FFMPEG = os.path.join(HERE, "usr/bin/ffmpeg") if os.path.exists(os.path.join(HERE, "usr/bin/ffmpeg")) else "ffmpeg"
 ICON_PATH = os.path.join(HERE, "mp4tomov.png")
+
+
+def open_terminal(command):
+    terminals = [
+        ("ptyxis", ["--new-window", "--"]),
+        ("gnome-terminal", ["--"]),
+        ("konsole", ["-e"]),
+        ("xfce4-terminal", ["--command="]),
+        ("mate-terminal", ["--"]),
+        ("qterminal", ["-e"]),
+        ("lxterminal", ["-e"]),
+        ("x-terminal-emulator", ["-e"]),
+        ("kitty", [""]),
+        ("alacritty", ["-e"]),
+        ("xterm", ["-e"]),
+    ]
+
+    for terminal, arguments in terminals:
+        terminal_path = shutil.which(terminal)
+
+        if terminal_path:
+            if terminal == "xfce4-terminal":
+                return subprocess.Popen(
+                    [terminal_path, "--command=" + shlex.join(command)]
+                )
+
+            if terminal == "lxterminal":
+                return subprocess.Popen(
+                    [terminal_path, "-e", shlex.join(command)]
+                )
+
+            return subprocess.Popen(
+                [terminal_path] + arguments + command
+            )
+
+    raise RuntimeError("No supported terminal emulator found.")
 
 class Converter(Gtk.Window):
     def __init__(self):
@@ -118,10 +156,13 @@ class Converter(Gtk.Window):
         # Disable start button while running
         self.start_button.set_sensitive(False)
 
-        # Launch FFmpeg in a new terminal window
-        subprocess.Popen(["gnome-terminal", "--"] + ffmpeg_cmd)
+        # Launch FFmpeg using the detected terminal
+        try:
+            open_terminal(ffmpeg_cmd)
+        except Exception as e:
+            self.show_message(f"Could not launch FFmpeg:\n{e}")
 
-        # Re-enable start button immediately after launching (so user can start another later)
+        # Re-enable start button
         self.start_button.set_sensitive(True)
 
     def show_message(self, msg):
